@@ -26,7 +26,7 @@
 pynrrd
 ======
 pynrrd is a pure-Python module for reading and writing `NRRD <http://teem.sourceforge.net/nrrd/>`_ files into and
-from numpy arrays.
+from numpy arrays. It also supports the NRRD Extensions Mechanism for storing hierarchical, structured metadata.
 
 Requirements
 ------------
@@ -100,6 +100,69 @@ Example usage
     readdata, header = nrrd.read(filename)
     print(readdata.shape)
     print(header)
+
+NRRD Extensions Support
+----------------------
+pynrrd supports the NRRD Extensions Mechanism, which allows storing hierarchical, JSON-structured metadata in NRRD files while maintaining backward compatibility with existing parsers.
+
+Reading files with extensions:
+
+.. code-block:: python
+
+    import nrrd
+    
+    # Extensions are processed by default
+    data, header = nrrd.read('example.nrrd')
+    
+    # Access extension data
+    if 'extensions' in header:
+        meta_data = header['extensions']['meta']['data']
+        print(f"Dataset name: {meta_data.get('name')}")
+        print(f"Creator: {meta_data.get('creator', {}).get('name')}")
+
+Writing files with extensions:
+
+.. code-block:: python
+
+    import nrrd
+    import numpy as np
+    
+    data = np.random.rand(10, 10)
+    header = {
+        # Standard NRRD fields can be specified as usual
+        'encoding': 'gzip',
+        
+        # Extension data
+        'extensions': {
+            'meta': {
+                'uri': 'https://example.org/meta/v1.0.0',
+                'data': {
+                    'name': 'Example Dataset',
+                    'creator': {
+                        'name': 'John Doe',
+                        'organization': 'Example Org'
+                    },
+                    'keywords': ['example', 'nrrd', 'extensions']
+                }
+            }
+        }
+    }
+    
+    # Write the file with extension data
+    nrrd.write('output.nrrd', data, header)
+
+Control how nested data is formatted in the NRRD file using the `flatten` parameter:
+
+.. code-block:: python
+
+    # Always flatten nested objects into dot notation (better readability for deep structures)
+    nrrd.write('output.nrrd', data, header, flatten='always')
+    
+    # Never flatten (keeps complex JSON objects intact)
+    nrrd.write('output.nrrd', data, header, flatten='never')
+    
+    # Auto-flatten based on line length (default)
+    nrrd.write('output.nrrd', data, header, flatten='auto', max_length=100)
 
 
 Next Steps

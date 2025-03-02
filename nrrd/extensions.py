@@ -4,6 +4,47 @@ Extensions module for NRRD files.
 This module implements the NRRD Extensions Specification, which adds support
 for JSON-structured metadata while maintaining backward compatibility with
 existing NRRD parsers.
+
+The NRRD extension mechanism allows storing hierarchical, structured metadata in NRRD files
+using a namespace-based approach. Extensions are declared in the NRRD header using the
+'extensions' field, which maps namespace prefixes to URI identifiers.
+
+Extension data is stored with keys prefixed by the namespace and a separator (default '/'):
+- 'namespace/field': value
+- 'namespace/nested.field': value  (hierarchical notation)
+
+Example of extensions in a NRRD file:
+```
+NRRD0004
+# ...standard NRRD fields...
+extensions:={"meta":"https://example.org/meta/v1.0.0"}
+meta/name:="My Dataset"
+meta/creator:={"name":"John Doe","organization":"Example Org"}
+meta/keywords:=["medical","imaging","example"]
+```
+
+When reading files, extension data is consolidated into the 'extensions' field in the header:
+```python
+{
+    'extensions': {
+        'meta': {
+            'uri': 'https://example.org/meta/v1.0.0',
+            'data': {
+                'name': 'My Dataset',
+                'creator': {
+                    'name': 'John Doe',
+                    'organization': 'Example Org'
+                },
+                'keywords': ['medical', 'imaging', 'example']
+            }
+        }
+    }
+}
+```
+
+This module provides the core functionality for parsing and generating extensions
+in NRRD files, but most users will interact with extensions using the standard
+nrrd.read() and nrrd.write() functions.
 """
 
 import json
@@ -395,17 +436,38 @@ def process_extension_fields(header: Dict[str, Any],
                            namespace_separator: str = DEFAULT_NAMESPACE_SEPARATOR,
                            parse_json: bool = True) -> Tuple[Dict[str, Any], ExtensionsDict]:
     """
-    Process extension fields in the NRRD header.
+    Process extension fields in the NRRD header into a structured format.
+    
+    This function:
+    1. Extracts extension declarations from the header
+    2. Identifies all keys with the extension prefix pattern
+    3. Parses their values as JSON if appropriate
+    4. Groups them by namespace and reconstructs hierarchical data
+    5. Returns both the processed header (without extension fields) and the structured extensions
     
     Args:
-        header: The NRRD header dictionary.
-        namespace_separator: The separator used between namespace and subkey.
-        parse_json: Whether to parse extension field values as JSON.
+        header: The NRRD header dictionary containing extension declarations and fields
+        namespace_separator: The separator used between namespace and subkey (default: "/")
+        parse_json: Whether to parse extension field values as JSON (default: True)
         
     Returns:
-        A tuple of (processed_header, extensions_dict)
-        - processed_header: Header without processed extension fields
+        A tuple of (processed_header, extensions_dict), where:
+        - processed_header: Original header without the processed extension fields
         - extensions_dict: Dictionary mapping extension names to objects with "uri" and "data" fields
+    
+    Example:
+        >>> header = {
+        ...     'dimension': 3,
+        ...     'type': 'float',
+        ...     'extensions': '{"meta":"https://example.org/meta/v1.0.0"}',
+        ...     'meta/name': '"Dataset"', 
+        ...     'meta/keywords': '["tag1", "tag2"]'
+        ... }
+        >>> processed_header, ext_dict = process_extension_fields(header)
+        >>> print(ext_dict['meta']['data']['name'])
+        Dataset
+        >>> print(ext_dict['meta']['data']['keywords'])
+        ['tag1', 'tag2']
     """
     # Make a copy of the header to avoid modifying the original
     processed_header = header.copy()
@@ -475,18 +537,48 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
     """
     Prepare extensions data for writing to a NRRD file.
     
+    This function converts the structured extensions dictionary into a flat dictionary
+    of key-value pairs suitable for writing to a NRRD header file. The nested structures
+    are either kept intact or flattened according to the flatten parameter.
+    
     Args:
         extensions_dict: Dictionary mapping extension names to objects with "uri" and "data" fields.
-        max_length: Maximum line length.
-        namespace_separator: The separator used between namespace and subkey.
-        flatten: Controls how hierarchical data is flattened. Options are:
-            - "auto": Only flatten if serialized length exceeds max_length
-            - "always": Always flatten nested objects/arrays
-            - "never": Never flatten (keeps everything as JSON objects)
+            Each extension object must have the format {'uri': str, 'data': dict}.
+        max_length: Maximum line length for auto-flattening mode (default: 78 characters).
+        namespace_separator: The separator used between namespace and subkey (default: "/").
+        flatten: Controls how hierarchical data is flattened:
+            - "auto": Only flatten nested structures if the serialized length exceeds max_length
+            - "always": Always flatten all nested objects/arrays into separate key-value pairs
+            - "never": Never flatten, keeping nested structures as JSON objects
         
     Returns:
         A dictionary of key-value pairs to include in the NRRD header.
         Values are pre-serialized to JSON strings ready to be written.
+    
+    Example:
+        >>> extensions = {
+        ...     'meta': {
+        ...         'uri': 'https://example.org/meta/v1.0.0',
+        ...         'data': {
+        ...             'name': 'Dataset',
+        ...             'creator': {'name': 'John', 'org': 'Example'}
+        ...         }
+        ...     }
+        ... }
+        >>> # With auto-flattening
+        >>> result = prepare_extensions_for_writing(extensions)
+        >>> # Result will include:
+        >>> # 'extensions.meta': '"https://example.org/meta/v1.0.0"'
+        >>> # 'meta/name': '"Dataset"'
+        >>> # 'meta/creator': '{"name":"John","org":"Example"}'
+        >>> 
+        >>> # With always-flattening
+        >>> result = prepare_extensions_for_writing(extensions, flatten='always')
+        >>> # Result will include:
+        >>> # 'extensions.meta': '"https://example.org/meta/v1.0.0"'
+        >>> # 'meta/name': '"Dataset"'
+        >>> # 'meta/creator.name': '"John"'
+        >>> # 'meta/creator.org': '"Example"'
     """
     result = {}
     

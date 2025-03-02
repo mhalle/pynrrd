@@ -534,10 +534,11 @@ def read(filename: str, custom_field_map: Optional[NRRDFieldMap] = None,
         from slowest-varying to fastest-varying (e.g. (z, y, x)), or 'F' (Fortran-order) where the dimensions are
         ordered from fastest-varying to slowest-varying (e.g. (x, y, z)).
     process_extension_fields : bool, optional
-        Whether to process extension fields into structured data. If True, extension fields
-        will be processed and added to the header as 'extensions' and 'extension_data' fields.
-        'extensions' contains a dictionary mapping extension names to URIs, while 'extension_data'
-        contains the nested structure of extension values organized by extension name.
+        Whether to process extension fields into structured data. If True (default), extension fields
+        will be processed and added to the header as 'extensions' field. The 'extensions' field will
+        contain a dictionary mapping extension names to objects with 'uri' and 'data' fields, where
+        'data' contains the hierarchical JSON structure of the extension values.
+        If False, extension fields will remain as raw key-value pairs in the header.
 
     Returns
     -------
@@ -545,8 +546,33 @@ def read(filename: str, custom_field_map: Optional[NRRDFieldMap] = None,
         Data read from NRRD file
     header : :class:`dict` (:class:`str`, :obj:`Object`)
         Dictionary containing the header fields and their corresponding parsed value.
-        If process_extension_fields is True, also contains 'extensions' and 'extension_data' fields.
-        See the 'process_extension_fields' parameter for details on these fields.
+        
+        If process_extension_fields is True (default), extension fields are processed and
+        added to the header as an 'extensions' field with the following structure:
+        
+        .. code-block:: python
+        
+            header['extensions'] = {
+                'namespace1': {
+                    'uri': 'https://example.org/namespace1/v1.0.0',
+                    'data': {
+                        # Hierarchical structure of extension data
+                        'field1': 'value1',
+                        'nested': {
+                            'field2': 'value2'
+                        }
+                    }
+                },
+                'namespace2': {
+                    'uri': 'https://example.org/namespace2/v1.0.0',
+                    'data': {
+                        # Second extension's data
+                    }
+                }
+            }
+            
+        If process_extension_fields is False, extension fields remain as key-value pairs
+        in the header dictionary.
 
     See Also
     --------

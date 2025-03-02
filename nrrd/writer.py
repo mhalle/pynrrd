@@ -327,9 +327,40 @@ def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] 
     data : :class:`numpy.ndarray`
         Data to save to the NRRD file
     header : :class:`dict` (:class:`str`, :obj:`Object`), optional
-        NRRD headers. Can include 'extensions' and 'extension_data' fields for writing structured
-        metadata using the NRRD Extensions specification. The 'extensions' field should contain a
-        dictionary mapping extension names to objects with 'uri' and 'data' fields.
+        NRRD header fields as a dictionary. 
+        
+        For NRRD Extensions support, include an 'extensions' field structured as:
+        
+        .. code-block:: python
+        
+            header = {
+                # Standard NRRD fields
+                'type': 'float',
+                'dimension': 3,
+                # ...
+                
+                # Extensions field
+                'extensions': {
+                    'namespace1': {
+                        'uri': 'https://example.org/namespace1/v1.0.0',
+                        'data': {
+                            'field1': 'value1',
+                            'nested': {
+                                'field2': 'value2'
+                            }
+                        }
+                    },
+                    'namespace2': {
+                        'uri': 'https://example.org/namespace2/v1.0.0',
+                        'data': {
+                            # Second extension's data
+                        }
+                    }
+                }
+            }
+        
+        Each extension namespace must have 'uri' and 'data' fields. The 'data' field can contain
+        any valid JSON structure, which will be stored according to the NRRD Extensions specification.
     detached_header : :obj:`bool` or :obj:`str`, optional
         Whether the header and data should be saved in separate files. Defaults to :obj:`False`. If a :obj:`str` is
         given this specifies the path to the datafile. This path will ONLY be used if the given filename ends with nhdr
@@ -349,10 +380,16 @@ def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] 
         slowest-varying to fastest-varying (e.g. (z, y, x)), or 'F' (Fortran-order) where the dimensions are ordered
         from fastest-varying to slowest-varying (e.g. (x, y, z)).
     flatten : {'auto', 'always', 'never'}, optional
-        Controls how extension data is flattened. 'auto' only flattens if needed (if serialized length exceeds max_length),
-        'always' always flattens nested objects/arrays, 'never' never flattens. Default is 'auto'.
+        Controls how extension data is flattened for storage in the NRRD header:
+        - 'auto' (default): Only flattens nested objects/arrays when the JSON representation
+          would exceed the max_length (useful for balancing readability with line length limits)
+        - 'always': Always flattens all nested objects/arrays (better for deeply nested structures
+          or for making the header more easily parseable by simple tools)
+        - 'never': Never flattens nested objects/arrays (preserves original structure in the NRRD file,
+          which may result in very long lines for complex data)
     max_length : int, optional
-        Maximum line length for extension data fields when using flatten='auto'. Default is 78.
+        Maximum line length for extension data fields when using flatten='auto'. Default is 78 characters.
+        This controls when nested objects/arrays get flattened in 'auto' mode.
 
     See Also
     --------
