@@ -9,6 +9,11 @@ The NRRD extension mechanism allows storing hierarchical, structured metadata in
 using a namespace-based approach. Extensions are declared in the NRRD header using the
 'extensions' field, which maps namespace prefixes to URI identifiers.
 
+The extension URI uniquely identifies the extension and its version. Currently, these URIs
+are stored but not automatically retrieved or validated. In the future, these URIs will be
+used to provide additional information about the extension, including JSON Schema
+validation and documentation.
+
 Extension data is stored with keys prefixed by the namespace and a separator (default '/'):
 - 'namespace/field': value
 - 'namespace/nested.field': value  (hierarchical notation)
@@ -334,11 +339,18 @@ def parse_extensions_from_header(header: Dict[str, Any]) -> Dict[str, str]:
     1. Individual declarations with keys starting with 'extensions.'
     2. A single 'extensions' key with a JSON object containing all declarations
     
+    The returned dictionary maps extension namespace prefixes to URI identifiers.
+    These URIs uniquely identify each extension and its version. Currently, the URIs
+    are only stored and not automatically retrieved or validated. In the future,
+    they will be used to provide additional information about the extension,
+    including JSON Schema validation and documentation.
+    
     Args:
         header: The NRRD header dictionary.
         
     Returns:
         A dictionary of extension names to URIs.
+        Example: {'meta': 'https://example.org/meta/v1.0.0'}
     """
     extensions = {}
     

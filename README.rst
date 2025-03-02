@@ -105,6 +105,8 @@ NRRD Extensions Support
 ----------------------
 pynrrd supports the NRRD Extensions Mechanism, which allows storing hierarchical, JSON-structured metadata in NRRD files while maintaining backward compatibility with existing parsers.
 
+Each extension is identified by a namespace prefix and a URI. The URI uniquely identifies the extension and its version. Currently, these URIs are stored but not automatically retrieved or validated. In the future, these URIs will be used to provide additional information about the extension, including JSON Schema validation and documentation.
+
 Reading files with extensions:
 
 .. code-block:: python
