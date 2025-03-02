@@ -17,3 +17,6 @@ ExtensionURI = str
 ExtensionData = Dict[str, Any]
 ExtensionObject = Dict[str, Any]  # { "uri": str, "data": Dict[str, Any] }
 ExtensionsDict = Dict[ExtensionName, ExtensionObject]
+
+# Flattening mode for extension serialization
+FlattenMode = Literal['auto', 'always', 'never']

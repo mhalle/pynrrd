@@ -4,14 +4,14 @@ import os
 import zlib
 from collections import OrderedDict
 from datetime import datetime
-from typing import IO, Any, Dict
+from typing import IO, Any, Dict, Union, Optional
 
 import numpy.typing as npt
 
 from nrrd.errors import NRRDError
 from nrrd.formatters import *
 from nrrd.reader import _get_field_type
-from nrrd.types import IndexOrder, NRRDFieldMap, NRRDFieldType, NRRDHeader
+from nrrd.types import IndexOrder, NRRDFieldMap, NRRDFieldType, NRRDHeader, FlattenMode
 
 # Older versions of Python had issues when uncompressed data was larger than 4GB (2^32). This should be fixed in latest
 # version of Python 2.7 and all versions of Python 3. The fix for this issue is to read the data in smaller chunks. The
@@ -110,7 +110,7 @@ def _format_field_value(value: Any, field_type: NRRDFieldType) -> str:
 
 
 def _handle_header(data: npt.NDArray, header: Optional[NRRDHeader] = None, index_order: IndexOrder = 'F', 
-                flatten: str = 'auto', max_length: int = 78) -> NRRDHeader:
+                flatten: FlattenMode = 'auto', max_length: int = 78) -> NRRDHeader:
     if header is None:
         header = {}
 
@@ -282,7 +282,7 @@ def _write_data(data: npt.NDArray, fh: IO, header: NRRDHeader, compression_level
 def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] = None,
           detached_header: bool = False, relative_data_path: bool = True,
           custom_field_map: Optional[NRRDFieldMap] = None, compression_level: int = 9, index_order: IndexOrder = 'F',
-          flatten: str = 'auto', max_length: int = 78):
+          flatten: FlattenMode = 'auto', max_length: int = 78):
     """Write :class:`numpy.ndarray` to NRRD file
 
     The :obj:`file` parameter specifies the absolute or relative filename to write the NRRD file to or an

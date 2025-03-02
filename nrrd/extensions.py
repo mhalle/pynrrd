@@ -10,6 +10,8 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from nrrd.types import FlattenMode
+
 # Type aliases
 ExtensionName = str
 ExtensionURI = str
@@ -28,7 +30,7 @@ JSON_SEPARATORS = (',', ':')  # Compact JSON formatting
 # General-purpose flattening and reconstitution
 ##############################################
 
-def flatten_structure(data, flatten="auto", max_length=78, serializer=None):
+def flatten_structure(data, flatten: FlattenMode = "auto", max_length: int = 78, serializer=None):
     """
     A generator that flattens complex JSON structures using JSON Path–style keys,
     yielding one {path: value} dict per "line."
@@ -218,7 +220,7 @@ def _merge_into_root(root, path_tokens, subtree):
 # Application-specific namespace wrappers
 ##############################################
 
-def flatten_namespaces(data, namespace_separator="/", flatten="auto", max_length=78, serializer=None):
+def flatten_namespaces(data, namespace_separator: str = "/", flatten: FlattenMode = "auto", max_length: int = 78, serializer=None):
     """
     A wrapper around flatten_structure() that accepts a dict whose top-level keys are namespaces.
     
@@ -469,7 +471,7 @@ def process_extension_fields(header: Dict[str, Any],
 def prepare_extensions_for_writing(extensions_dict: ExtensionsDict, 
                                   max_length: int = DEFAULT_MAX_LINE_LENGTH,
                                   namespace_separator: str = DEFAULT_NAMESPACE_SEPARATOR,
-                                  flatten: str = "auto") -> Dict[str, str]:
+                                  flatten: FlattenMode = "auto") -> Dict[str, str]:
     """
     Prepare extensions data for writing to a NRRD file.
     
