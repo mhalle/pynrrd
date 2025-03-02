@@ -101,6 +101,10 @@ def _format_field_value(value: Any, field_type: NRRDFieldType) -> str:
         return format_optional_vector_list(value)
     elif field_type == 'double vector list':
         return format_optional_vector_list(value)
+    elif field_type == 'json':
+        # For 'json' field type, the value should already be a JSON-serialized string,
+        # so we just return it directly without additional serialization
+        return value
     else:
         raise NRRDError(f'Invalid field type given: {field_type}')
 
@@ -109,37 +113,56 @@ def _handle_header(data: npt.NDArray, header: Optional[NRRDHeader] = None, index
     if header is None:
         header = {}
 
+    # Create a copy of the header to work with
+    header_copy = header.copy()
+    
+    # Extract extension data if present
+    extension_data = {}
+    extensions = {}
+    
+    if 'extension_data' in header_copy:
+        extension_data = header_copy.pop('extension_data')
+        
+    if 'extensions' in header_copy:
+        extensions = header_copy.pop('extensions')
+
     # Infer a number of fields from the NumPy array and overwrite values in the header dictionary.
     # Get type string identifier from the NumPy datatype
-    header['type'] = _TYPEMAP_NUMPY2NRRD[data.dtype.str[1:]]
+    header_copy['type'] = _TYPEMAP_NUMPY2NRRD[data.dtype.str[1:]]
 
     # If the datatype contains more than one byte and the encoding is not ASCII, then set the endian header value
     # based on the datatype's endianness. Otherwise, delete the endian field from the header if present
-    if data.dtype.itemsize > 1 and header.get('encoding', '').lower() not in ['ascii', 'text', 'txt']:
-        header['endian'] = _NUMPY2NRRD_ENDIAN_MAP[data.dtype.str[:1]]
-    elif 'endian' in header:
-        del header['endian']
+    if data.dtype.itemsize > 1 and header_copy.get('encoding', '').lower() not in ['ascii', 'text', 'txt']:
+        header_copy['endian'] = _NUMPY2NRRD_ENDIAN_MAP[data.dtype.str[:1]]
+    elif 'endian' in header_copy:
+        del header_copy['endian']
 
     # If space is specified in the header, then space dimension can not. See
     # http://teem.sourceforge.net/nrrd/format.html#space
-    if 'space' in header.keys() and 'space dimension' in header.keys():
-        del header['space dimension']
+    if 'space' in header_copy.keys() and 'space dimension' in header_copy.keys():
+        del header_copy['space dimension']
 
     # Update the dimension and sizes fields in the header based on the data. Since NRRD expects meta data to be in
     # Fortran order we are required to reverse the shape in the case of the array being in C order. E.g., data was read
     # using index_order='C'.
-    header['dimension'] = data.ndim
-    header['sizes'] = list(data.shape) if index_order == 'F' else list(data.shape[::-1])
+    header_copy['dimension'] = data.ndim
+    header_copy['sizes'] = list(data.shape) if index_order == 'F' else list(data.shape[::-1])
 
     # The default encoding is 'gzip'
-    if 'encoding' not in header:
-        header['encoding'] = 'gzip'
+    if 'encoding' not in header_copy:
+        header_copy['encoding'] = 'gzip'
 
     # Remove detached data filename from the header
-    header.pop('datafile', None)
-    header.pop('data file', None)
+    header_copy.pop('datafile', None)
+    header_copy.pop('data file', None)
+    
+    # If we have extension data, prepare it for writing
+    if extension_data and extensions:
+        from nrrd.extensions import prepare_extensions_for_writing
+        extension_fields = prepare_extensions_for_writing(extensions, extension_data)
+        header_copy.update(extension_fields)
 
-    return header
+    return header_copy
 
 
 def _write_header(file: IO, header: Dict[str, Any], custom_field_map: Optional[NRRDFieldMap] = None):
@@ -162,7 +185,20 @@ def _write_header(file: IO, header: Dict[str, Any], custom_field_map: Optional[N
             ordered_options.append((field, local_options[field]))
             del local_options[field]
 
-    # Leftover items are assumed to be the custom field/value options
+    # Get extension declarations from the header
+    extensions = {}
+    ext_declarations = []
+    for field in list(local_options.keys()):
+        if field.startswith('extensions.'):
+            ext_declarations.append((field, local_options[field]))
+            prefix = field[len('extensions.'):]
+            extensions[prefix] = local_options[field]
+            del local_options[field]
+    
+    # Add extension declarations after standard fields
+    ordered_options.extend(ext_declarations)
+    
+    # Leftover items are assumed to be custom field/value options or extension fields
     # So get current size and any items past this index will be a custom value
     custom_field_start_index = len(ordered_options)
 
@@ -173,11 +209,11 @@ def _write_header(file: IO, header: Dict[str, Any], custom_field_map: Optional[N
     for x, (field, value) in enumerate(ordered_options.items()):
         # Get the field_type based on field and then get corresponding
         # value as a str using _format_field_value
-        field_type = _get_field_type(field, custom_field_map)
+        field_type = _get_field_type(field, custom_field_map, extensions)
         value_str = _format_field_value(value, field_type)
 
-        # Custom fields are written as key/value pairs with a := instead of : delimiter
-        if x >= custom_field_start_index:
+        # Custom fields and extension fields are written as key/value pairs with a := instead of : delimiter
+        if x >= custom_field_start_index or '/' in field or field.startswith('extensions.'):
             file.write((f'{field}:={value_str}\n').encode('ascii'))
         else:
             file.write((f'{field}: {value_str}\n').encode('ascii'))
@@ -279,6 +315,12 @@ def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] 
 
     .. note::
             The default encoding field used if not specified in :obj:`header` is 'gzip'.
+            
+    .. note::
+            Extension data is supported through the 'extensions' and 'extension_data' fields in the header.
+            All data types supported by JSON (strings, numbers, booleans, arrays, objects) can be used in
+            extension data. Complex hierarchical data structures will be automatically flattened when writing
+            and reconstructed when reading.
 
     .. note::
             The :obj:`index_order` parameter must be consistent with the index order specified in :meth:`read`.
@@ -294,7 +336,10 @@ def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] 
     data : :class:`numpy.ndarray`
         Data to save to the NRRD file
     header : :class:`dict` (:class:`str`, :obj:`Object`), optional
-        NRRD headers
+        NRRD headers. Can include 'extensions' and 'extension_data' fields for writing structured
+        metadata using the NRRD Extensions specification. The 'extensions' field should contain a
+        dictionary mapping extension names to URI strings, while 'extension_data' should contain
+        a dictionary with extension data organized by extension name.
     detached_header : :obj:`bool` or :obj:`str`, optional
         Whether the header and data should be saved in separate files. Defaults to :obj:`False`. If a :obj:`str` is
         given this specifies the path to the datafile. This path will ONLY be used if the given filename ends with nhdr

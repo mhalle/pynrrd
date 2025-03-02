@@ -6,11 +6,15 @@ import shlex
 import warnings
 import zlib
 from collections import OrderedDict
-from typing import IO, Any, AnyStr, Iterable, Tuple
+from typing import IO, Any, AnyStr, Dict, Iterable, Optional, Tuple, Union
+
+import numpy as np
+import numpy.typing as npt
 
 import nrrd
 from nrrd.parsers import *
 from nrrd.types import IndexOrder, NRRDFieldMap, NRRDFieldType, NRRDHeader
+from nrrd.errors import NRRDError
 
 # Older versions of Python had issues when uncompressed data was larger than 4GB (2^32). This should be fixed in latest
 # version of Python 2.7 and all versions of Python 3. The fix for this issue is to read the data in smaller chunks.
@@ -87,7 +91,14 @@ _TYPEMAP_NRRD2NUMPY = {
 }
 
 
-def _get_field_type(field: str, custom_field_map: Optional[NRRDFieldMap]) -> NRRDFieldType:
+def _get_field_type(field: str, custom_field_map: Optional[NRRDFieldMap] = None, extensions: Optional[Dict[str, str]] = None) -> NRRDFieldType:
+    # Try extension field detection first
+    from nrrd.extensions import get_field_type_extension
+    extension_type = get_field_type_extension(field, extensions)
+    if extension_type:
+        return extension_type
+    
+    # Standard NRRD field types
     if field in ['dimension', 'lineskip', 'line skip', 'byteskip', 'byte skip', 'space dimension']:
         return 'int'
     elif field in ['min', 'max', 'oldmin', 'old min', 'oldmax', 'old max']:
@@ -149,6 +160,9 @@ def _parse_field_value(value: str, field_type: NRRDFieldType) -> Any:
         return parse_optional_vector_list(value, dtype=int)
     elif field_type == 'double vector list':
         return parse_optional_vector_list(value, dtype=float)
+    elif field_type == 'json':
+        from nrrd.extensions import parse_json_nrrd
+        return parse_json_nrrd(value)
     else:
         raise NRRDError(f'Invalid field type given: {field_type}')
 
@@ -213,6 +227,10 @@ def read_header(file: Union[str, Iterable[AnyStr]], custom_field_map: Optional[N
     called. The two common objects that meet these requirements are file objects and a list of strings. When
     :obj:`file` is a file object, it must be opened with the binary flag ('b') on platforms where that makes a
     difference, such as Windows.
+    
+    .. note::
+            NRRD headers are parsed using ASCII encoding as per the NRRD specification. Invalid byte sequences 
+            will be replaced with a replacement character to ensure robust parsing.
 
     See :ref:`background/how-to-use:reading nrrd files` for more information on reading NRRD files.
 
@@ -227,7 +245,10 @@ def read_header(file: Union[str, Iterable[AnyStr]], custom_field_map: Optional[N
     Returns
     -------
     header : :class:`dict` (:class:`str`, :obj:`Object`)
-        Dictionary containing the header fields and their corresponding parsed value
+        Dictionary containing the header fields and their corresponding parsed value.
+        Note that this raw header does not process extension fields into a structured format.
+        To get processed extension data, use the full :meth:`read` function with
+        process_extension_fields=True.
 
     See Also
     --------
@@ -247,11 +268,13 @@ def read_header(file: Union[str, Iterable[AnyStr]], custom_field_map: Optional[N
     it = iter(file)
     magic_line = next(it)
 
-    # Depending on what type file is, decoding may or may not be necessary. Decode if necessary, otherwise skip.
+    # For the header, we always use ASCII encoding as per the NRRD specification
     need_decode = False
     if hasattr(magic_line, 'decode'):
         need_decode = True
-        magic_line = magic_line.decode('ascii', 'ignore')
+        # Use 'replace' error handler to replace invalid bytes with a replacement character
+        # This is more robust than 'ignore' which can lead to improper parsing
+        magic_line = magic_line.decode('ascii', 'replace')
 
     # Validate the magic line and increment header size by size of the line
     header_size += _validate_magic_line(magic_line)
@@ -266,7 +289,8 @@ def read_header(file: Union[str, Iterable[AnyStr]], custom_field_map: Optional[N
     for line in it:
         header_size += len(line)
         if need_decode:
-            line = line.decode('ascii', 'ignore')
+            # Use 'replace' error handler for consistent handling of invalid bytes
+            line = line.decode('ascii', 'replace')
 
         # Trailing whitespace ignored per the NRRD spec
         line = line.rstrip()
@@ -486,7 +510,8 @@ def read_data(header: NRRDHeader, fh: Optional[IO] = None, filename: Optional[st
     return data
 
 
-def read(filename: str, custom_field_map: Optional[NRRDFieldMap] = None, index_order: IndexOrder = 'F') \
+def read(filename: str, custom_field_map: Optional[NRRDFieldMap] = None, 
+         index_order: IndexOrder = 'F', process_extension_fields: bool = True) \
         -> Tuple[npt.NDArray, NRRDHeader]:
     """Read a NRRD file and return the header and data
 
@@ -508,21 +533,40 @@ def read(filename: str, custom_field_map: Optional[NRRDFieldMap] = None, index_o
         Specifies the index order of the resulting data array. Either 'C' (C-order) where the dimensions are ordered
         from slowest-varying to fastest-varying (e.g. (z, y, x)), or 'F' (Fortran-order) where the dimensions are
         ordered from fastest-varying to slowest-varying (e.g. (x, y, z)).
+    process_extension_fields : bool, optional
+        Whether to process extension fields into structured data. If True, extension fields
+        will be processed and added to the header as 'extensions' and 'extension_data' fields.
+        'extensions' contains a dictionary mapping extension names to URIs, while 'extension_data'
+        contains the nested structure of extension values organized by extension name.
 
     Returns
     -------
     data : :class:`numpy.ndarray`
         Data read from NRRD file
     header : :class:`dict` (:class:`str`, :obj:`Object`)
-        Dictionary containing the header fields and their corresponding parsed value
+        Dictionary containing the header fields and their corresponding parsed value.
+        If process_extension_fields is True, also contains 'extensions' and 'extension_data' fields.
+        See the 'process_extension_fields' parameter for details on these fields.
 
     See Also
     --------
     :meth:`write`, :meth:`read_header`, :meth:`read_data`
     """
+    from nrrd.extensions import process_extension_fields as process_extensions
 
     with open(filename, 'rb') as fh:
         header = read_header(fh, custom_field_map)
         data = read_data(header, fh, filename, index_order)
+
+    # Process extension fields if requested
+    if process_extension_fields and ('extensions' in header or any(k.startswith('extensions.') for k in header)):
+        processed_header, extensions_dict, extension_data = process_extensions(header)
+        
+        # Add extension information to the header
+        processed_header['extensions'] = extensions_dict
+        processed_header['extension_data'] = extension_data
+        
+        # Return the processed header
+        return data, processed_header
 
     return data, header
