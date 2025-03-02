@@ -14,7 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 ExtensionName = str
 ExtensionURI = str
 ExtensionData = Dict[str, Any]
-ExtensionRegistry = Dict[ExtensionName, ExtensionURI]
+ExtensionObject = Dict[str, Any]  # { "uri": str, "data": Dict[str, Any] }
+ExtensionsDict = Dict[ExtensionName, ExtensionObject]
 
 # Constants
 DEFAULT_NAMESPACE_SEPARATOR = "/"
@@ -390,7 +391,7 @@ def parse_json_value(value_str: str) -> Any:
 
 def process_extension_fields(header: Dict[str, Any], 
                            namespace_separator: str = DEFAULT_NAMESPACE_SEPARATOR,
-                           parse_json: bool = True) -> Tuple[Dict[str, Any], Dict[str, str], Dict[str, Any]]:
+                           parse_json: bool = True) -> Tuple[Dict[str, Any], ExtensionsDict]:
     """
     Process extension fields in the NRRD header.
     
@@ -400,16 +401,26 @@ def process_extension_fields(header: Dict[str, Any],
         parse_json: Whether to parse extension field values as JSON.
         
     Returns:
-        A tuple of (processed_header, extensions_dict, extension_data)
+        A tuple of (processed_header, extensions_dict)
         - processed_header: Header without processed extension fields
-        - extensions_dict: Dictionary of extension names to URIs
-        - extension_data: Dictionary of extension data
+        - extensions_dict: Dictionary mapping extension names to objects with "uri" and "data" fields
     """
     # Make a copy of the header to avoid modifying the original
     processed_header = header.copy()
     
     # Get all extension declarations
-    extensions = parse_extensions_from_header(processed_header)
+    extensions_uris = parse_extensions_from_header(processed_header)
+    
+    # Extensions must be declared if extension fields are to be processed
+    # Note: We don't raise an error anymore as reader.py now handles this with a warning
+    
+    # Initialize the extensions dictionary with the new structure
+    extensions_dict: ExtensionsDict = {}
+    for prefix, uri in extensions_uris.items():
+        extensions_dict[prefix] = {
+            "uri": uri,
+            "data": {}
+        }
     
     # Remove extension declarations from the header
     # Remove the consolidated 'extensions' key if present
@@ -417,13 +428,13 @@ def process_extension_fields(header: Dict[str, Any],
         del processed_header['extensions']
         
     # Remove individual extension.* declarations
-    for key in list(extensions.keys()):
+    for key in list(extensions_uris.keys()):
         full_key = f'extensions.{key}'
         if full_key in processed_header:
             del processed_header[full_key]
     
     # Find all extension keys
-    extension_keys = find_extension_keys(processed_header, extensions, namespace_separator)
+    extension_keys = find_extension_keys(processed_header, extensions_uris, namespace_separator)
     
     # Group extension keys by namespace
     extension_fields = []
@@ -444,22 +455,25 @@ def process_extension_fields(header: Dict[str, Any],
     extension_data = reconstitute_namespaces(
         extension_fields, 
         namespace_separator=namespace_separator, 
-        namespace_list=list(extensions.keys())
+        namespace_list=list(extensions_uris.keys())
     )
     
-    return processed_header, extensions, extension_data
+    # Place the reconstituted data into the new extensions structure
+    for prefix, data in extension_data.items():
+        if prefix in extensions_dict:
+            extensions_dict[prefix]["data"] = data
+    
+    return processed_header, extensions_dict
 
 
-def prepare_extensions_for_writing(extensions: Dict[str, str], 
-                                  extension_data: Dict[str, Any], 
+def prepare_extensions_for_writing(extensions_dict: ExtensionsDict, 
                                   max_length: int = DEFAULT_MAX_LINE_LENGTH,
                                   namespace_separator: str = DEFAULT_NAMESPACE_SEPARATOR) -> Dict[str, str]:
     """
     Prepare extensions data for writing to a NRRD file.
     
     Args:
-        extensions: Dictionary of extension names to URIs.
-        extension_data: Dictionary of extension data.
+        extensions_dict: Dictionary mapping extension names to objects with "uri" and "data" fields.
         max_length: Maximum line length.
         namespace_separator: The separator used between namespace and subkey.
         
@@ -468,6 +482,20 @@ def prepare_extensions_for_writing(extensions: Dict[str, str],
         Values are pre-serialized to JSON strings ready to be written.
     """
     result = {}
+    
+    # Extract extensions and extension_data from the new structure
+    extensions = {}
+    extension_data = {}
+    
+    for prefix, ext_obj in extensions_dict.items():
+        # Get URI, defaulting to empty string if not present
+        uri = ext_obj.get("uri", "")
+        extensions[prefix] = uri
+        
+        # Get data
+        data = ext_obj.get("data", {})
+        if data:  # Only add if there's actual data
+            extension_data[prefix] = data
     
     # Add extension declarations
     for prefix, uri in extensions.items():

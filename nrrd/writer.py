@@ -116,15 +116,11 @@ def _handle_header(data: npt.NDArray, header: Optional[NRRDHeader] = None, index
     # Create a copy of the header to work with
     header_copy = header.copy()
     
-    # Extract extension data if present
-    extension_data = {}
-    extensions = {}
+    # Extract extension data with new structure if present
+    extensions_dict = {}
     
-    if 'extension_data' in header_copy:
-        extension_data = header_copy.pop('extension_data')
-        
     if 'extensions' in header_copy:
-        extensions = header_copy.pop('extensions')
+        extensions_dict = header_copy.pop('extensions')
 
     # Infer a number of fields from the NumPy array and overwrite values in the header dictionary.
     # Get type string identifier from the NumPy datatype
@@ -157,9 +153,9 @@ def _handle_header(data: npt.NDArray, header: Optional[NRRDHeader] = None, index
     header_copy.pop('data file', None)
     
     # If we have extension data, prepare it for writing
-    if extension_data and extensions:
+    if extensions_dict:
         from nrrd.extensions import prepare_extensions_for_writing
-        extension_fields = prepare_extensions_for_writing(extensions, extension_data)
+        extension_fields = prepare_extensions_for_writing(extensions_dict)
         header_copy.update(extension_fields)
 
     return header_copy
@@ -185,18 +181,7 @@ def _write_header(file: IO, header: Dict[str, Any], custom_field_map: Optional[N
             ordered_options.append((field, local_options[field]))
             del local_options[field]
 
-    # Get extension declarations from the header
     extensions = {}
-    ext_declarations = []
-    for field in list(local_options.keys()):
-        if field.startswith('extensions.'):
-            ext_declarations.append((field, local_options[field]))
-            prefix = field[len('extensions.'):]
-            extensions[prefix] = local_options[field]
-            del local_options[field]
-    
-    # Add extension declarations after standard fields
-    ordered_options.extend(ext_declarations)
     
     # Leftover items are assumed to be custom field/value options or extension fields
     # So get current size and any items past this index will be a custom value

@@ -560,13 +560,31 @@ def read(filename: str, custom_field_map: Optional[NRRDFieldMap] = None,
 
     # Process extension fields if requested
     if process_extension_fields and ('extensions' in header or any(k.startswith('extensions.') for k in header)):
-        processed_header, extensions_dict, extension_data = process_extensions(header)
+        # Import here to avoid circular imports
+        from nrrd.extensions import DEFAULT_NAMESPACE_SEPARATOR
+        import warnings
         
-        # Add extension information to the header
-        processed_header['extensions'] = extensions_dict
-        processed_header['extension_data'] = extension_data
+        # Check if there are keys that look like extensions but no declarations
+        has_extension_keys = any(DEFAULT_NAMESPACE_SEPARATOR in k for k in header.keys())
+        has_extension_decl = 'extensions' in header or any(k.startswith('extensions.') for k in header)
         
-        # Return the processed header
-        return data, processed_header
+        if has_extension_keys and not has_extension_decl:
+            warnings.warn("Keys that look like extensions found, but no extensions declaration present. "
+                         "These keys will be passed through unchanged for backward compatibility.")
+            # Return unmodified for backward compatibility
+            return data, header
+            
+        try:
+            processed_header, extensions_dict = process_extensions(header)
+            
+            # Add extension information to the header
+            processed_header['extensions'] = extensions_dict
+            
+            # Return the processed header
+            return data, processed_header
+        except ValueError as e:
+            # Re-raise other ValueErrors
+            warnings.warn(f"Error processing extensions: {str(e)}. Original header will be returned.")
+            return data, header
 
     return data, header

@@ -18,33 +18,41 @@ Functions
 Extension Data Structure
 =======================================================
 
-When using the NRRD extensions mechanism, users should provide two special fields
+When using the NRRD extensions mechanism, users should provide a special field
 in the header:
 
-1. **extensions**: A dictionary mapping extension names to URI strings.
-   
-   Example::
-   
-       'extensions': {
-           'meta': 'https://example.org/meta',
-           'dicom': 'https://example.org/dicom'
-       }
+**extensions**: A dictionary mapping extension names to objects with 'uri' and 'data' fields:
 
-2. **extension_data**: A dictionary containing extension data organized by extension name.
-   
-   Example::
-   
-       'extension_data': {
-           'meta': {
-               'author': 'Jane Doe',
-               'date': '2023-01-01',
-               'version': 1.0
-           },
-           'dicom': {
-               'patientID': '12345',
-               'studyDate': '20230101'
-           }
-       }
+- **uri**: A string containing the URI that identifies the extension specification
+- **data**: A dictionary containing the hierarchical data for the extension
+
+Example::
+
+    'extensions': {
+        'meta': {
+            'uri': 'https://example.org/meta',
+            'data': {
+                'author': 'Jane Doe',
+                'date': '2023-01-01',
+                'version': 1.0
+            }
+        },
+        'dicom': {
+            'uri': 'https://example.org/dicom',
+            'data': {
+                'patientID': '12345',
+                'studyDate': '20230101'
+            }
+        }
+    }
+
+Requirements and Backward Compatibility
+---------------------------------------
+
+The NRRD extensions specification requires that any file containing extension fields must declare
+the extensions they use. If PyNRRD encounters keys that look like extension fields (contain the 
+namespace separator) but no extensions are declared, it will issue a warning and pass through 
+these fields unchanged for backward compatibility.
 
 Extension Field Serialization
 =======================================================
@@ -55,14 +63,17 @@ fields are reconstructed into a hierarchical structure.
 
 For example, an extension with hierarchical data like this::
 
-    'extension_data': {
+    'extensions': {
         'analysis': {
-            'segmentation': {
-                'method': 'automatic',
-                'regions': [
-                    {'id': 1, 'name': 'tumor'},
-                    {'id': 2, 'name': 'edema'}
-                ]
+            'uri': 'https://example.org/analysis',
+            'data': {
+                'segmentation': {
+                    'method': 'automatic',
+                    'regions': [
+                        {'id': 1, 'name': 'tumor'},
+                        {'id': 2, 'name': 'edema'}
+                    ]
+                }
             }
         }
     }

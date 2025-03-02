@@ -97,27 +97,31 @@ Would be flattened and written to the NRRD file as::
 Using Extensions in PyNRRD
 --------------------------
 
-In PyNRRD, extensions are handled through two special fields in the header dictionary:
+In PyNRRD, extensions are handled through a single 'extensions' field in the header dictionary. 
+This field contains a dictionary that maps extension names to objects with 'uri' and 'data' fields:
 
-1. **extensions**: A dictionary mapping extension names to URIs
-2. **extension_data**: A dictionary containing the hierarchical data organized by extension
+1. **extensions**: A dictionary mapping extension names to objects containing:
+   - **uri**: The URI identifying the extension specification
+   - **data**: The hierarchical data for the extension
 
 For example::
 
     header = {
         'extensions': {
-            'meta': 'https://example.org/meta',
-            'dicom': 'https://example.org/dicom'
-        },
-        'extension_data': {
             'meta': {
-                'author': 'Jane Doe',
-                'date': '2023-01-01',
-                'version': 1.0
+                'uri': 'https://example.org/meta',
+                'data': {
+                    'author': 'Jane Doe',
+                    'date': '2023-01-01',
+                    'version': 1.0
+                }
             },
             'dicom': {
-                'patientID': '12345',
-                'studyDate': '20230101'
+                'uri': 'https://example.org/dicom',
+                'data': {
+                    'patientID': '12345',
+                    'studyDate': '20230101'
+                }
             }
         }
     }
@@ -135,5 +139,13 @@ When reading a NRRD file with extensions, PyNRRD reconstructs the hierarchical s
     data, header = nrrd.read('with_extensions.nrrd')
     
     # Access extension data
-    meta_author = header['extension_data']['meta']['author']
-    dicom_id = header['extension_data']['dicom']['patientID']
+    meta_author = header['extensions']['meta']['data']['author']
+    dicom_id = header['extensions']['dicom']['data']['patientID']
+
+Extension Declaration Requirement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The NRRD extensions specification requires that any file containing extension fields must include
+extension declarations. If PyNRRD encounters fields that look like extensions (contain the namespace
+separator) but no extensions are declared, it will issue a warning and pass through the fields
+unchanged for backward compatibility.

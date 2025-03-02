@@ -154,24 +154,24 @@ Using NRRD Extensions
     
     # Create a header with extension data
     header = {
-        # Register one or more extensions with their URI
+        # Register one or more extensions with their URI and data
         'extensions': {
-            'meta': 'https://example.org/meta',
-            'dicom': 'https://example.org/dicom'
-        },
-        
-        # Provide extension data organized by extension name
-        'extension_data': {
             'meta': {
-                'author': 'Jane Doe',
-                'date': '2023-01-01',
-                'version': 1.0,
-                'tags': ['sample', 'test', 'demo']
+                'uri': 'https://example.org/meta',
+                'data': {
+                    'author': 'Jane Doe',
+                    'date': '2023-01-01',
+                    'version': 1.0,
+                    'tags': ['sample', 'test', 'demo']
+                }
             },
             'dicom': {
-                'patientID': '12345',
-                'studyDate': '20230101',
-                'modality': 'MR'
+                'uri': 'https://example.org/dicom',
+                'data': {
+                    'patientID': '12345',
+                    'studyDate': '20230101',
+                    'modality': 'MR'
+                }
             }
         }
     }
@@ -183,8 +183,8 @@ Using NRRD Extensions
     data_read, header_read = nrrd.read('with_extensions.nrrd')
     
     # Access extension data
-    meta_author = header_read['extension_data']['meta']['author']
-    dicom_id = header_read['extension_data']['dicom']['patientID']
+    meta_author = header_read['extensions']['meta']['data']['author']
+    dicom_id = header_read['extensions']['dicom']['data']['patientID']
     
     print(f"Author: {meta_author}")
     >>> Author: Jane Doe
@@ -204,38 +204,38 @@ Complex Hierarchical Extension Data
     # Create a header with complex hierarchical extension data
     header = {
         'extensions': {
-            'analysis': 'https://example.org/analysis'
-        },
-        'extension_data': {
             'analysis': {
-                'segmentation': {
-                    'method': 'automatic',
-                    'algorithm': 'deep-learning',
-                    'parameters': {
-                        'model': 'unet',
-                        'weights': 'pretrained_v2',
-                        'threshold': 0.75
-                    },
-                    'regions': [
-                        {
-                            'id': 1,
-                            'name': 'tumor',
-                            'color': [255, 0, 0],
-                            'volume_mm3': 1250.5
+                'uri': 'https://example.org/analysis',
+                'data': {
+                    'segmentation': {
+                        'method': 'automatic',
+                        'algorithm': 'deep-learning',
+                        'parameters': {
+                            'model': 'unet',
+                            'weights': 'pretrained_v2',
+                            'threshold': 0.75
                         },
-                        {
-                            'id': 2,
-                            'name': 'edema',
-                            'color': [0, 255, 0],
-                            'volume_mm3': 3621.2
+                        'regions': [
+                            {
+                                'id': 1,
+                                'name': 'tumor',
+                                'color': [255, 0, 0],
+                                'volume_mm3': 1250.5
+                            },
+                            {
+                                'id': 2,
+                                'name': 'edema',
+                                'color': [0, 255, 0],
+                                'volume_mm3': 3621.2
+                            }
+                        ]
+                    },
+                    'measurements': {
+                        'timestamp': '2023-01-15T14:30:00Z',
+                        'metrics': {
+                            'snr': 22.5,
+                            'cnr': 18.3
                         }
-                    ]
-                },
-                'measurements': {
-                    'timestamp': '2023-01-15T14:30:00Z',
-                    'metrics': {
-                        'snr': 22.5,
-                        'cnr': 18.3
                     }
                 }
             }
@@ -249,9 +249,9 @@ Complex Hierarchical Extension Data
     data_read, header_read = nrrd.read('hierarchical_extensions.nrrd')
     
     # Access deeply nested fields
-    algorithm = header_read['extension_data']['analysis']['segmentation']['algorithm']
-    threshold = header_read['extension_data']['analysis']['segmentation']['parameters']['threshold']
-    region_name = header_read['extension_data']['analysis']['segmentation']['regions'][0]['name']
+    algorithm = header_read['extensions']['analysis']['data']['segmentation']['algorithm']
+    threshold = header_read['extensions']['analysis']['data']['segmentation']['parameters']['threshold']
+    region_name = header_read['extensions']['analysis']['data']['segmentation']['regions'][0]['name']
     
     print(f"Algorithm: {algorithm}")
     >>> Algorithm: deep-learning
