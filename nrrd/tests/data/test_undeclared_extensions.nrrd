@@ -1,0 +1,18 @@
+NRRD0004
+# Example with extension-like fields but no declarations
+type: float
+dimension: 3
+sizes: 5 5 5
+endian: little
+space: right-anterior-superior
+spacings: 1.0 1.0 1.0
+space dimension: 3
+encoding: raw
+space directions: (1,0,0) (0,1,0) (0,0,1)
+kinds: domain domain domain
+space origin: (0,0,0)
+# No extensions declaration, but has fields that look like extensions
+meta/name:="Test Dataset"
+meta/description:="A test dataset with undeclared extension-like fields"
+dicom/patient.id:="12345"
+custom_field:= "Custom value that's not an extension"

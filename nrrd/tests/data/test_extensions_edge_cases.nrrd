@@ -1,0 +1,23 @@
+NRRD0004
+# Example with edge cases and unusual characters
+type: float
+dimension: 3
+sizes: 5 5 5
+endian: little
+space: right-anterior-superior
+spacings: 1.0 1.0 1.0
+space dimension: 3
+encoding: raw
+space directions: (1,0,0) (0,1,0) (0,0,1)
+kinds: domain domain domain
+space origin: (0,0,0)
+extensions:={"edge":"https://jnrrd.org/extensions/edge-cases/v1.0.0"}
+edge/empty_string:=""
+edge/text_with_newlines:="Line 1\nLine 2\nLine 3"
+edge/text_with_tabs:="Column 1\tColumn 2\tColumn 3"
+edge/unicode_string:="你好，世界"
+edge/string_with_quotes:="They said \"hello\""
+edge/string_with_backslashes:="C:\\Program Files\\App"
+edge/string_with_json_separators:="Commas,Colons:Braces{}"
+edge/long_string:="This is a very long string. It's so long that it might exceed the max_length parameter when serialized to JSON. This string is designed to test how the extension mechanism handles very long strings that might need to be wrapped or truncated in some way. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+edge/path.with.many.segments.that.might.exceed.max_length.when.serialized:="testing long path handling"

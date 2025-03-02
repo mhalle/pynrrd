@@ -1,0 +1,27 @@
+NRRD0004
+# Example with hierarchical extension declarations
+type: float
+dimension: 3
+sizes: 5 5 5
+endian: little
+space: right-anterior-superior
+spacings: 1.0 1.0 1.0
+space dimension: 3
+encoding: raw
+space directions: (1,0,0) (0,1,0) (0,0,1)
+kinds: domain domain domain
+space origin: (0,0,0)
+extensions.meta:="https://jnrrd.org/extensions/metadata/v1.0.0"
+extensions.dicom:="https://jnrrd.org/extensions/dicom/v1.0.0"
+meta/name:="Hierarchical Test Dataset"
+meta/description:="A test dataset with hierarchical extension declarations"
+meta/creator.name:="Test Creator"
+meta/creator.url:="https://example.org/creator"
+meta/dateCreated:="2024-02-29"
+meta/keywords[0]:="hierarchical"
+meta/keywords[1]:="declaration"
+meta/keywords[2]:="test"
+dicom/patient.id:="12345"
+dicom/patient.name:="ANONYMOUS"
+dicom/study.date:="20240229"
+dicom/study.description:="TEST STUDY"

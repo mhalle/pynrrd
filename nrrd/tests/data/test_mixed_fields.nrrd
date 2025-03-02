@@ -1,0 +1,28 @@
+NRRD0004
+# Example with mix of standard, custom, and extension fields
+type: float
+dimension: 3
+sizes: 5 5 5
+endian: little
+space: right-anterior-superior
+spacings: 1.0 1.0 1.0
+space dimension: 3
+encoding: raw
+space directions: (1,0,0) (0,1,0) (0,0,1)
+kinds: domain domain domain
+space origin: (0,0,0)
+# Standard fields
+content: Mixed fields test dataset
+# Custom fields
+custom_field_1:= "Custom value 1"
+custom_field_2:= "Custom value 2"
+custom_field_3:= "Custom value 3"
+# Extension fields
+extensions:={"meta":"https://jnrrd.org/extensions/metadata/v1.0.0"}
+meta/name:="Mixed Fields Test"
+meta/description:="A test dataset with mix of field types"
+meta/custom_metadata:={"flag1":true,"flag2":false,"count":42}
+# More custom fields interspersed with extension fields
+another_custom_field:= "Another custom value"
+meta/keywords:=["mixed","fields","test"]
+yet_another_custom_field:= "Yet another custom value"
