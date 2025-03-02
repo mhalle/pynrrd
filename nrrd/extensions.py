@@ -14,6 +14,10 @@ are stored but not automatically retrieved or validated. In the future, these UR
 used to provide additional information about the extension, including JSON Schema
 validation and documentation.
 
+While not recommended for production use, you can specify an empty string ("") as the URI
+for local extensions during development. This allows you to define custom extension
+data without a formal extension specification.
+
 Extension data is stored with keys prefixed by the namespace and a separator (default '/'):
 - 'namespace/field': value
 - 'namespace/nested.field': value  (hierarchical notation)
@@ -344,6 +348,9 @@ def parse_extensions_from_header(header: Dict[str, Any]) -> Dict[str, str]:
     are only stored and not automatically retrieved or validated. In the future,
     they will be used to provide additional information about the extension,
     including JSON Schema validation and documentation.
+    
+    For local or development purposes, an empty string ("") can be used as a URI.
+    This is supported by the implementation but not recommended for production use.
     
     Args:
         header: The NRRD header dictionary.

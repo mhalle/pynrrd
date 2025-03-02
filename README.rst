@@ -107,6 +107,21 @@ pynrrd supports the NRRD Extensions Mechanism, which allows storing hierarchical
 
 Each extension is identified by a namespace prefix and a URI. The URI uniquely identifies the extension and its version. Currently, these URIs are stored but not automatically retrieved or validated. In the future, these URIs will be used to provide additional information about the extension, including JSON Schema validation and documentation.
 
+While not recommended for production use, you can specify an empty string as the URI for local extensions during development:
+
+.. code-block:: python
+
+    header = {
+        'extensions': {
+            'local': {
+                'uri': '',  # Empty URI for local development
+                'data': {
+                    'custom_field': 'value'
+                }
+            }
+        }
+    }
+
 Reading files with extensions:
 
 .. code-block:: python
