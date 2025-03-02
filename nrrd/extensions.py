@@ -468,7 +468,8 @@ def process_extension_fields(header: Dict[str, Any],
 
 def prepare_extensions_for_writing(extensions_dict: ExtensionsDict, 
                                   max_length: int = DEFAULT_MAX_LINE_LENGTH,
-                                  namespace_separator: str = DEFAULT_NAMESPACE_SEPARATOR) -> Dict[str, str]:
+                                  namespace_separator: str = DEFAULT_NAMESPACE_SEPARATOR,
+                                  flatten: str = "auto") -> Dict[str, str]:
     """
     Prepare extensions data for writing to a NRRD file.
     
@@ -476,6 +477,10 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
         extensions_dict: Dictionary mapping extension names to objects with "uri" and "data" fields.
         max_length: Maximum line length.
         namespace_separator: The separator used between namespace and subkey.
+        flatten: Controls how hierarchical data is flattened. Options are:
+            - "auto": Only flatten if serialized length exceeds max_length
+            - "always": Always flatten nested objects/arrays
+            - "never": Never flatten (keeps everything as JSON objects)
         
     Returns:
         A dictionary of key-value pairs to include in the NRRD header.
@@ -518,7 +523,7 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
     flattened_fields = flatten_namespaces(
         extension_data,
         namespace_separator=namespace_separator,
-        flatten="auto",
+        flatten=flatten,
         max_length=max_length,
         serializer=calc_line_length
     )

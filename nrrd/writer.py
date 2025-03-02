@@ -109,7 +109,8 @@ def _format_field_value(value: Any, field_type: NRRDFieldType) -> str:
         raise NRRDError(f'Invalid field type given: {field_type}')
 
 
-def _handle_header(data: npt.NDArray, header: Optional[NRRDHeader] = None, index_order: IndexOrder = 'F') -> NRRDHeader:
+def _handle_header(data: npt.NDArray, header: Optional[NRRDHeader] = None, index_order: IndexOrder = 'F', 
+                flatten: str = 'auto', max_length: int = 78) -> NRRDHeader:
     if header is None:
         header = {}
 
@@ -155,7 +156,11 @@ def _handle_header(data: npt.NDArray, header: Optional[NRRDHeader] = None, index
     # If we have extension data, prepare it for writing
     if extensions_dict:
         from nrrd.extensions import prepare_extensions_for_writing
-        extension_fields = prepare_extensions_for_writing(extensions_dict)
+        extension_fields = prepare_extensions_for_writing(
+            extensions_dict,
+            max_length=max_length,
+            flatten=flatten
+        )
         header_copy.update(extension_fields)
 
     return header_copy
@@ -276,7 +281,8 @@ def _write_data(data: npt.NDArray, fh: IO, header: NRRDHeader, compression_level
 
 def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] = None,
           detached_header: bool = False, relative_data_path: bool = True,
-          custom_field_map: Optional[NRRDFieldMap] = None, compression_level: int = 9, index_order: IndexOrder = 'F'):
+          custom_field_map: Optional[NRRDFieldMap] = None, compression_level: int = 9, index_order: IndexOrder = 'F',
+          flatten: str = 'auto', max_length: int = 78):
     """Write :class:`numpy.ndarray` to NRRD file
 
     The :obj:`file` parameter specifies the absolute or relative filename to write the NRRD file to or an
@@ -302,10 +308,10 @@ def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] 
             The default encoding field used if not specified in :obj:`header` is 'gzip'.
             
     .. note::
-            Extension data is supported through the 'extensions' and 'extension_data' fields in the header.
+            Extension data is supported through the 'extensions' field in the header.
             All data types supported by JSON (strings, numbers, booleans, arrays, objects) can be used in
             extension data. Complex hierarchical data structures will be automatically flattened when writing
-            and reconstructed when reading.
+            and reconstructed when reading. You can control the flattening behavior using the 'flatten' parameter.
 
     .. note::
             The :obj:`index_order` parameter must be consistent with the index order specified in :meth:`read`.
@@ -323,8 +329,7 @@ def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] 
     header : :class:`dict` (:class:`str`, :obj:`Object`), optional
         NRRD headers. Can include 'extensions' and 'extension_data' fields for writing structured
         metadata using the NRRD Extensions specification. The 'extensions' field should contain a
-        dictionary mapping extension names to URI strings, while 'extension_data' should contain
-        a dictionary with extension data organized by extension name.
+        dictionary mapping extension names to objects with 'uri' and 'data' fields.
     detached_header : :obj:`bool` or :obj:`str`, optional
         Whether the header and data should be saved in separate files. Defaults to :obj:`False`. If a :obj:`str` is
         given this specifies the path to the datafile. This path will ONLY be used if the given filename ends with nhdr
@@ -343,13 +348,18 @@ def write(file: Union[str, IO], data: npt.NDArray, header: Optional[NRRDHeader] 
         Specifies the index order used for writing. Either 'C' (C-order) where the dimensions are ordered from
         slowest-varying to fastest-varying (e.g. (z, y, x)), or 'F' (Fortran-order) where the dimensions are ordered
         from fastest-varying to slowest-varying (e.g. (x, y, z)).
+    flatten : {'auto', 'always', 'never'}, optional
+        Controls how extension data is flattened. 'auto' only flattens if needed (if serialized length exceeds max_length),
+        'always' always flattens nested objects/arrays, 'never' never flattens. Default is 'auto'.
+    max_length : int, optional
+        Maximum line length for extension data fields when using flatten='auto'. Default is 78.
 
     See Also
     --------
     :meth:`read`, :meth:`read_header`, :meth:`read_data`
     """
 
-    header = _handle_header(data, header, index_order)
+    header = _handle_header(data, header, index_order, flatten, max_length)
 
     # If the file is a file handle, then write to the file.
     if isinstance(file, io.IOBase):
