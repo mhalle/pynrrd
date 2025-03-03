@@ -485,6 +485,117 @@ class TestExtensionsFullRoundTrip(unittest.TestCase):
             self.assertEqual(custom['uri'], 'https://example.org/custom/v1.0.0')
             self.assertEqual(custom['data']['field1'], 'value1')
             self.assertEqual(custom['data']['field2'], 'value2')
+            
+    def test_field_sorting_order(self):
+        """Test that fields are properly sorted by length in the output file."""
+        import tempfile
+        import os
+        
+        # Create a very long string (well over the threshold)
+        long_string = "x" * 1000  # 1000 character string
+        medium_string = "y" * 200  # 200 character string - still normal
+        
+        # Create a header with a mix of field lengths
+        header = {
+            'type': 'float',
+            'dimension': 3,
+            'sizes': [5, 5, 5],
+            'encoding': 'raw',
+            'endian': 'little',
+            'extensions': {
+                'test': {
+                    'uri': 'https://example.org/test/v1.0.0',
+                    'data': {
+                        'a_normal_field': 'short value',
+                        'z_normal_field': 'another short value',
+                        'b_normal_field': medium_string,
+                        'very_long_field1': long_string,
+                        'very_long_field2': long_string + "additional" # slightly longer
+                    }
+                }
+            }
+        }
+        
+        # Create test data
+        data = np.ones((5, 5, 5), dtype=np.float32)
+        
+        # Create a temporary file
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = os.path.join(temp_dir, 'test_field_sorting.nrrd')
+            
+            # Write to file
+            nrrd.write(temp_file, data, header)
+            
+            # Read the raw file to check field ordering
+            with open(temp_file, 'rb') as f:
+                # Read just the header portion of the file (up to the blank line)
+                header_bytes = b''
+                for line in f:
+                    if line.strip() == b'':
+                        break
+                    header_bytes += line
+                
+                lines = header_bytes.split(b'\n')
+                
+            # Convert to strings for easier analysis
+            lines = [line.decode('ascii', errors='replace') for line in lines if line]
+            
+            # Find the indices of various fields
+            extension_decl_idx = -1
+            normal_field_indices = []
+            long_field_indices = []
+            
+            for i, line in enumerate(lines):
+                if line.startswith('extensions.test:='):
+                    extension_decl_idx = i
+                elif line.startswith('test/a_normal_field:='):
+                    normal_field_indices.append(i)
+                elif line.startswith('test/z_normal_field:='):
+                    normal_field_indices.append(i)
+                elif line.startswith('test/b_normal_field:='):
+                    normal_field_indices.append(i)
+                elif line.startswith('test/very_long_field'):
+                    long_field_indices.append(i)
+            
+            # Check ordering:
+            # 1. Extension declaration should come first
+            self.assertGreater(extension_decl_idx, -1, "Extension declaration not found")
+            
+            # 2. Normal fields should come after extension declarations,
+            #    before long fields, and be in alphabetical order
+            for normal_idx in normal_field_indices:
+                self.assertGreater(normal_idx, extension_decl_idx, 
+                                  "Normal fields should come after extension declarations")
+            
+            # Find indices of specific normal fields
+            a_field_idx = next((i for i, line in enumerate(lines) 
+                               if line.startswith('test/a_normal_field:=')), -1)
+            b_field_idx = next((i for i, line in enumerate(lines) 
+                               if line.startswith('test/b_normal_field:=')), -1)
+            z_field_idx = next((i for i, line in enumerate(lines) 
+                               if line.startswith('test/z_normal_field:=')), -1)
+            
+            # Check alphabetical ordering of normal fields
+            self.assertLess(a_field_idx, b_field_idx, 
+                           "Normal fields should be in alphabetical order")
+            self.assertLess(b_field_idx, z_field_idx, 
+                           "Normal fields should be in alphabetical order")
+            
+            # 3. Long fields should come after normal fields
+            for long_idx in long_field_indices:
+                for normal_idx in normal_field_indices:
+                    self.assertGreater(long_idx, normal_idx, 
+                                      "Long fields should come after normal fields")
+            
+            # 4. Long fields should be sorted by length
+            long_field1_idx = next((i for i, line in enumerate(lines) 
+                                  if line.startswith('test/very_long_field1:=')), -1)
+            long_field2_idx = next((i for i, line in enumerate(lines) 
+                                  if line.startswith('test/very_long_field2:=')), -1)
+            
+            # Field2 is longer, should come after field1
+            self.assertGreater(long_field2_idx, long_field1_idx, 
+                              "Longer fields should come after shorter ones")
     
     def test_write_with_various_flattening(self):
         """Test writing with different flattening modes."""

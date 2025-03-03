@@ -562,6 +562,9 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
     of key-value pairs suitable for writing to a NRRD header file. The nested structures
     are either kept intact or flattened according to the flatten parameter.
     
+    The output is ordered with extension declarations first, followed by normal-length fields
+    (sorted alphabetically), and finally very long fields (>5*max_length) sorted by length.
+    
     Args:
         extensions_dict: Dictionary mapping extension names to objects with "uri" and "data" fields.
             Each extension object must have the format {'uri': str, 'data': dict}.
@@ -602,9 +605,7 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
         # 'meta/creator.name': '"John"'
         # 'meta/creator.org': '"Example"'
     """
-    result = {}
-    
-    # Extract extensions and extension_data from the new structure
+    # Extract extensions and extension_data from the structure
     extensions = {}
     extension_data = {}
     
@@ -618,9 +619,10 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
         if data:  # Only add if there's actual data
             extension_data[prefix] = data
     
-    # Add extension declarations
+    # Extension declarations (always first)
+    extension_decls = {}
     for prefix, uri in extensions.items():
-        result[f'extensions.{prefix}'] = serialize_nrrd_json(uri)
+        extension_decls[f'extensions.{prefix}'] = serialize_nrrd_json(uri)
     
     # Define a custom serializer function for line length calculation
     def calc_line_length(obj):
@@ -644,11 +646,37 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
         serializer=calc_line_length
     )
     
-    # Add flattened fields to result
+    # Process fields in a single pass, categorizing as we go
+    # Threshold for "very long" fields is 5 * max_length
+    long_threshold = 5 * max_length
+    normal_fields = {}
+    long_fields = {}
+    
+    # Process and categorize each field
     for field_dict in flattened_fields:
         for key, value in field_dict.items():
-            # Serialize values to JSON
-            result[key] = serialize_nrrd_json(value)
+            # Serialize value to JSON
+            serialized = serialize_nrrd_json(value)
+            
+            # Categorize by length
+            if len(serialized) > long_threshold:
+                long_fields[key] = serialized
+            else:
+                normal_fields[key] = serialized
+    
+    # Build result with proper ordering
+    result = {}
+    
+    # Extension declarations (always first)
+    result.update(extension_decls)
+    
+    # Normal fields (alphabetically sorted)
+    for key in sorted(normal_fields.keys()):
+        result[key] = normal_fields[key]
+    
+    # Long fields (sorted by length)
+    for key in sorted(long_fields.keys(), key=lambda k: len(long_fields[k])):
+        result[key] = long_fields[key]
     
     return result
 
