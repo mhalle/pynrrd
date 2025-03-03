@@ -571,7 +571,7 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
             - "auto": Only flatten nested structures if the serialized length exceeds max_length
             - "always": Always flatten all nested objects/arrays into separate key-value pairs
             - "never": Never flatten, keeping nested structures as JSON objects
-        
+    
     Returns:
         A dictionary of key-value pairs to include in the NRRD header.
         Values are pre-serialized to JSON strings ready to be written.
@@ -586,20 +586,21 @@ def prepare_extensions_for_writing(extensions_dict: ExtensionsDict,
         ...         }
         ...     }
         ... }
-        >>> # With auto-flattening
+        
+        # With auto-flattening
         >>> result = prepare_extensions_for_writing(extensions)
-        >>> # Result will include:
-        >>> # 'extensions.meta': '"https://example.org/meta/v1.0.0"'
-        >>> # 'meta/name': '"Dataset"'
-        >>> # 'meta/creator': '{"name":"John","org":"Example"}'
-        >>> 
-        >>> # With always-flattening
+        # Result will include:
+        # 'extensions.meta': '"https://example.org/meta/v1.0.0"'
+        # 'meta/name': '"Dataset"'
+        # 'meta/creator': '{"name":"John","org":"Example"}'
+        
+        # With always-flattening
         >>> result = prepare_extensions_for_writing(extensions, flatten='always')
-        >>> # Result will include:
-        >>> # 'extensions.meta': '"https://example.org/meta/v1.0.0"'
-        >>> # 'meta/name': '"Dataset"'
-        >>> # 'meta/creator.name': '"John"'
-        >>> # 'meta/creator.org': '"Example"'
+        # Result will include:
+        # 'extensions.meta': '"https://example.org/meta/v1.0.0"'
+        # 'meta/name': '"Dataset"'
+        # 'meta/creator.name': '"John"'
+        # 'meta/creator.org': '"Example"'
     """
     result = {}
     

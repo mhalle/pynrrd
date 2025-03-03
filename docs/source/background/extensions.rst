@@ -37,7 +37,7 @@ Declarations appear in the NRRD header with the prefix "extensions.", for exampl
     extensions.dicom:="https://example.org/nrrd/dicom/v1"
 
 Extension Fields
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
 
 Extension fields contain the actual metadata and are identified by a prefix matching
 one of the declared extensions, followed by a separator (typically "/") and the field name::
@@ -150,7 +150,7 @@ For development purposes, an empty string ("") can be specified as the URI
 for local extensions, though this is not recommended for production use.
 
 Extension Declaration Requirement
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The NRRD extensions specification requires that any file containing extension fields must include
 extension declarations. If PyNRRD encounters fields that look like extensions (contain the namespace
