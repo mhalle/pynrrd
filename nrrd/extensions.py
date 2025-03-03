@@ -9,18 +9,15 @@ The NRRD extension mechanism allows storing hierarchical, structured metadata in
 using a namespace-based approach. Extensions are declared in the NRRD header using the
 'extensions' field, which maps namespace prefixes to URI identifiers.
 
-The extension URI uniquely identifies the extension and its version. Currently, these URIs
-are stored but not automatically retrieved or validated. In the future, these URIs will be
-used to provide additional information about the extension, including JSON Schema
-validation and documentation.
-
-While not recommended for production use, you can specify an empty string ("") as the URI
-for local extensions during development. This allows you to define custom extension
-data without a formal extension specification.
-
 Extension data is stored with keys prefixed by the namespace and a separator (default '/'):
 - 'namespace/field': value
 - 'namespace/nested.field': value  (hierarchical notation)
+
+The extension URI uniquely identifies the extension and its version. These URIs
+should point to documentation about the extension, preferably a machine-readable 
+schema in JSON Schema format. Standards for extension schemas are still in development.
+In the future, parsers may use these URIs to validate extension data or provide
+additional information.
 
 Example of extensions in a NRRD file:
 ```
@@ -50,6 +47,10 @@ When reading files, extension data is consolidated into the 'extensions' field i
     }
 }
 ```
+
+For development purposes, an empty string ("") can be specified as the URI
+for local extensions. This allows custom extension data to be defined
+without a formal extension specification, though this is not recommended for production use.
 
 This module provides the core functionality for parsing and generating extensions
 in NRRD files, but most users will interact with extensions using the standard
@@ -344,13 +345,14 @@ def parse_extensions_from_header(header: Dict[str, Any]) -> Dict[str, str]:
     2. A single 'extensions' key with a JSON object containing all declarations
     
     The returned dictionary maps extension namespace prefixes to URI identifiers.
-    These URIs uniquely identify each extension and its version. Currently, the URIs
-    are only stored and not automatically retrieved or validated. In the future,
-    they will be used to provide additional information about the extension,
-    including JSON Schema validation and documentation.
+    These URIs uniquely identify each extension and its version. The URIs
+    should point to documentation about the extension, preferably a machine-readable 
+    schema in JSON Schema format. Standards for extension schemas are still in development.
+    In the future, parsers may use these URIs to validate extension data or provide
+    additional information.
     
-    For local or development purposes, an empty string ("") can be used as a URI.
-    This is supported by the implementation but not recommended for production use.
+    For development purposes, an empty string ("") can be specified as the URI
+    for local extensions, though this is not recommended for production use.
     
     Args:
         header: The NRRD header dictionary.

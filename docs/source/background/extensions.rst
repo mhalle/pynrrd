@@ -5,7 +5,7 @@ Overview
 -----------
 
 The NRRD Extensions specification adds a mechanism for storing structured metadata in NRRD files using JSON.
-This allows users to include complex hierarchical data alongside their volume data while maintaining
+This enables including complex hierarchical data alongside volume data while maintaining
 backward compatibility with existing NRRD parsers.
 
 Key features of the NRRD Extensions mechanism:
@@ -27,7 +27,11 @@ Extension Declarations
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Extension declarations define the namespaces used in the file and link them to URI specifications.
-They appear in the NRRD header with the prefix "extensions.", for example::
+The URI uniquely identifies the extension and its version. These URIs should point to documentation
+about the extension, preferably a machine-readable schema in JSON Schema format. Standards for
+extension schemas are still in development.
+
+Declarations appear in the NRRD header with the prefix "extensions.", for example::
 
     extensions.meta:="https://example.org/nrrd/metadata/v1"
     extensions.dicom:="https://example.org/nrrd/dicom/v1"
@@ -141,6 +145,9 @@ When reading a NRRD file with extensions, PyNRRD reconstructs the hierarchical s
     # Access extension data
     meta_author = header['extensions']['meta']['data']['author']
     dicom_id = header['extensions']['dicom']['data']['patientID']
+
+For development purposes, an empty string ("") can be specified as the URI
+for local extensions, though this is not recommended for production use.
 
 Extension Declaration Requirement
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

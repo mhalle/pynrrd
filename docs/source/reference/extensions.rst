@@ -18,12 +18,15 @@ Functions
 Extension Data Structure
 =======================================================
 
-When using the NRRD extensions mechanism, users should provide a special field
+When using the NRRD extensions mechanism, a special field should be provided
 in the header:
 
 **extensions**: A dictionary mapping extension names to objects with 'uri' and 'data' fields:
 
-- **uri**: A string containing the URI that identifies the extension specification
+- **uri**: A string containing the URI that identifies the extension specification.
+  This URI should point to documentation about the extension, preferably a 
+  machine-readable schema in JSON Schema format. Standards for extension schemas
+  are still in development.
 - **data**: A dictionary containing the hierarchical data for the extension
 
 Example::
@@ -53,6 +56,9 @@ The NRRD extensions specification requires that any file containing extension fi
 the extensions they use. If PyNRRD encounters keys that look like extension fields (contain the 
 namespace separator) but no extensions are declared, it will issue a warning and pass through 
 these fields unchanged for backward compatibility.
+
+For development purposes, an empty string ("") can be specified as the URI
+for local extensions, though this is not recommended for production use.
 
 Extension Field Serialization
 =======================================================
